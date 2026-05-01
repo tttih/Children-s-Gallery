@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Children's Gallery</title>
+    <style>
+        /* --- 视觉风格设计 (参考附件极简风) --- */
+        :root {
+            --bg-color: #ffffff;
+            --text-main: #1a1a1a;
+            --text-muted: #666666;
+            --accent-color: #000000;
+            --border-color: #eaeaea;
+            --modal-bg: rgba(0,0,0,0.5);
+            --gray-bg: #f9f9f9;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        header {
+            padding: 60px 40px 40px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-weight: 400;
+            font-size: 32px;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .header-btns {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            cursor: pointer;
+            padding: 8px 16px;
+            border: 1px solid var(--accent-color);
+            background: transparent;
+            color: var(--accent-color);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: var(--accent-color);
+            color: #fff;
+        }
+
+        button.primary {
+            background: var(--accent-color);
+            color: #fff;
+        }
+
+        /* --- 画廊网格布局 --- */
+        .gallery-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 40px;
+            padding: 0 40px 80px 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .work-card {
+            position: relative;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .thumbnail-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            overflow: hidden;
+            background-color: var(--gray-bg);
+        }
+
+        .thumbnail-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .work-card:hover img {
+            transform: scale(1.03);
+        }
+
+        .work-info {
+            margin-top: 15px;
+        }
+
+        .work-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin: 0 0 8px 0;
+        }
+
+        .work-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0 0 5px 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .work-date {
+            font-size: 13px;
+            color: #999;
+            margin: 0;
+        }
+
+        /* --- 编辑模式特有按钮 --- */
+        .edit-overlay {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: none; /* 默认隐藏 */
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .edit-mode .edit-overlay {
+            display: flex;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.9);
+            border-color: #ccc;
+            color: #333;
+        }
+
+        .btn-delete {
+            border-color: #ff4d4f;
+            color: #ff4d4f;
+        }
+
+        .btn-delete:hover {
+            background: #ff4d4f;
+            color: #fff;
+        }
+
+        /* --- 弹窗 (Modal) 样式 --- */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--modal-bg);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            font-weight: 400;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* --- 详情查看窗 (Detail View) --- */
+        .detail-modal {
+            max-width: 1000px;
+            width: 95%;
+            display: flex; 
+            flex-direction: row;
+            align-items: stretch;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .detail-left {
+            flex: 2;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .detail-left img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .detail-right {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-right h2 {
+            font-weight: 400;
+            margin-top: 0;
+            font-size: 24px;
+        }
+
+        .detail-right .date-tag {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .detail-right .desc-text {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .detail-right .close-btn {
+            color: #000;
+        }
+
+        .detail-right {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end; 
+            margin-top: auto;          
+            padding-top: 30px;
+        }
+
+        .btn-nav {
+            padding: 10px 20px;
+            border: 1px solid var(--border-color);
+            background: var(--gray-bg);
+            color: var(--text-main);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-nav:hover {
+            background: #eee;
+            border-color: #ccc;
+        }
+
+        .btn-exit {
+            padding: 10px 20px;
+            border: 1px solid var(--accent-color);
+            background: transparent;
+            color: var(--accent-color);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-exit:hover {
+            background: var(--accent-color);
+            color: #fff;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            header { flex-direction: column; align-items: flex-start; gap: 20px; }
+            .detail-modal { flex-direction: column; height: 90vh; }
+            .detail-left { height: 60%; }
+            .detail-right { height: 40%; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Children's Gallery</h1>
+        <div class="header-btns">
+            <button onclick="openModal('uploadModal')">上传作品</button>
+            <button onclick="toggleEditMode()">编辑作品</button>
+            <button onclick="exportData()" title="导出所有数据到JSON文件">备份</button>
+            <button onclick="document.getElementById('importFile').click()">恢复</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+        </div>
+    </header>
+
+    <div class="gallery-container" id="gallery">
+        <!-- 作品将在这里动态生成 -->
+    </div>
+
+    <!-- 上传作品窗口 -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <h3>上传新作品</h3>
+            <div class="form-group">
+                <label>作品名称</label>
+                <input type="text" id="upName" placeholder="请输入作品名称">
+            </div>
+            <div class="form-group">
+                <label>作品介绍</label>
+                <textarea id="upDesc" rows="4" placeholder="请输入作品介绍"></textarea>
+            </div>
+            <div class="form-group">
+                <label>创作日期</label>
+                <input type="date" id="upDate">
+            </div>
+            <div class="form-group">
+                <label>上传图片</label>
+                <input type="file" id="upFile" accept="image/*">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('uploadModal')">取消</button>
+                <button class="primary" onclick="saveWork()">确认上传</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑作品窗口 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3>修改作品信息</h3>
+            <input type="hidden" id="editId">
+            <div class="form-group">
+                <label>作品名称</label>
+                <input type="text" id="editName">
+            </div>
+            <div class="form-group">
+                <label>作品介绍</label>
+                <textarea id="editDesc" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label>创作日期</label>
+                <input type="date" id="editDate">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('editModal')">取消</button>
+                <button class="primary" onclick="updateWork()">保存修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情查看窗口 -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content detail-modal">
+            <div class="detail-left">
+                <img id="detailImg" src="" alt="Full View">
+            </div>
+            <div class="detail-right">
+                <h2 id="detailTitle"></h2>
+                <div class="date-tag" id="detailDate"></div>
+                <div class="desc-text" id="detailDesc"></div>
+                <div class="detail-controls">
+                    <button class="btn-nav" onclick="changeWork(-1)">上一张</button>
+                    <button class="btn-nav" onclick="changeWork(1)">下一张</button>
+                    <button class="btn-exit" onclick="closeModal('detailModal')">退出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- IndexedDB 数据库逻辑 --- */
+		let currentWorkId = null; // 记录当前查看的作品ID，用于切换
+        const DB_NAME = 'ChildrenGalleryDB';
+        const STORE_NAME = 'works';
+        let db;
+
+        // 初始化数据库
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        };
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            renderGallery();
+        };
+
+        /* --- 核心功能函数 --- */
+
+        // 渲染画廊
+        async function renderGallery() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+            
+            const works = await getAllWorks();
+            works.forEach(work => {
+                const card = document.createElement('div');
+                card.className = 'work-card';
+                
+                // 将Blob转换为URL用于显示
+                const imgUrl = URL.createObjectURL(work.image);
+
+                card.innerHTML = `
+                    <div class="thumbnail-wrapper" onclick="viewWork(${work.id})">
+                        <img src="${imgUrl}" alt="${work.name}">
+                        <div class="edit-overlay">
+                            <button class="btn-small" onclick="event.stopPropagation(); openEdit(${work.id}, '${work.name}', '${work.desc}', '${work.date}')">编辑</button>
+                            <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteWork(${work.id})">删除</button>
+                        </div>
+                    </div>
+                    <div class="work-info" onclick="viewWork(${work.id})">
+                        <div class="work-title">${work.name}</div>
+                        <div class="work-desc">${work.desc}</div>
+                        <div class="work-date">${work.date}</div>
+                    </div>
+                `;
+                gallery.appendChild(card);
+            });
+        }
+
+        // 保存新作品
+        async function saveWork() {
+            const name = document.getElementById('upName').value;
+            const desc = document.getElementById('upDesc').value;
+            const date = document.getElementById('upDate').value;
+            const fileInput = document.getElementById('upFile');
+
+            if (!name || !fileInput.files[0]) {
+                alert('请填写名称并上传图片');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const work = { name, desc, date, image: file };
+
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).add(work);
+            tx.oncomplete = () => {
+                closeModal('uploadModal');
+                renderGallery();
+                clearUploadForm();
+            };
+        }
+
+        // 打开编辑窗口
+        function openEdit(id, name, desc, date) {
+            document.getElementById('editId').value = id;
+            document.getElementById('editName').value = name;
+            document.getElementById('editDesc').value = desc;
+            document.getElementById('editDate').value = date;
+            openModal('editModal');
+        }
+
+        // 更新作品
+        async function updateWork() {
+            const id = parseInt(document.getElementById('editId').value);
+            const name = document.getElementById('editName').value;
+            const desc = document.getElementById('editDesc').value;
+            const date = document.getElementById('editDate').value;
+
+            const work = await getWorkById(id);
+            const updatedWork = { ...work, name, desc, date };
+
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).put(updatedWork);
+            tx.oncomplete = () => {
+                closeModal('editModal');
+                renderGallery();
+            };
+        }
+
+        // 删除作品
+        async function deleteWork(id) {
+            if (confirm('确定要删除这部作品吗？此操作不可撤销。')) {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).delete(id);
+                tx.oncomplete = () => renderGallery();
+            }
+        }
+
+        // 查看详情
+        async function viewWork(id) {
+		    currentWorkId = id;
+            const work = await getWorkById(id);
+            const imgUrl = URL.createObjectURL(work.image);
+            
+            document.getElementById('detailImg').src = imgUrl;
+            document.getElementById('detailTitle').innerText = work.name;
+            document.getElementById('detailDate').innerText = work.date;
+            document.getElementById('detailDesc').innerText = work.desc;
+            
+            openModal('detailModal');
+        }
+
+        /* --- 辅助工具函数 --- */
+
+        function getAllWorks() {
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+            });
+        }
+
+        function getWorkById(id) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get(id);
+                request.onsuccess = () => resolve(request.result);
+            });
+        }
+
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function toggleEditMode() {
+            document.body.classList.toggle('edit-mode');
+            const btn = event.target;
+            btn.innerText = document.body.classList.contains('edit-mode') ? '退出编辑' : '编辑作品';
+        }
+
+        function clearUploadForm() {
+            document.getElementById('upName').value = '';
+            document.getElementById('upDesc').value = '';
+            document.getElementById('upDate').value = '';
+            document.getElementById('upFile').value = '';
+        }
+
+        /* --- 备份与恢复功能 --- */
+        async function exportData() {
+            const works = await getAllWorks();
+            const exportData = [];
+            
+            for (const work of works) {
+                const base64 = await blobToBase64(work.image);
+                exportData.push({ ...work, image: base64 });
+            }
+            
+            const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gallery_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        async function changeWork(direction) {
+            const works = await getAllWorks();
+            const currentIndex = works.findIndex(w => w.id === currentWorkId);
+    
+            let nextIndex = currentIndex + direction;
+    
+            // 边界检查：防止超出第一张或最后一张
+            if (nextIndex >= 0 && nextIndex < works.length) {
+            viewWork(works[nextIndex].id);
+            } else {
+            alert(direction === 1 ? '已经是最后一张作品了' : '已经是第一张作品了');
+            }
+        }
+
+        async function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = JSON.parse(e.target.result);
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                
+                for (const item of data) {
+                    const blob = await base64ToBlob(item.image);
+                    const work = { name: item.name, desc: item.desc, date: item.date, image: blob };
+                    store.add(work);
+                }
+                tx.oncomplete = () => {
+                    alert('恢复成功！');
+                    renderGallery();
+                };
+            };
+            reader.readAsText(file);
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function base64ToBlob(base64) {
+            const binaryString = atob(base64.split(',')[1]);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            return new Blob([bytes], { type: 'image/jpeg' });
+        }
+		// --- 键盘快捷键支持 ---
+window.addEventListener('keydown', async (e) => {
+    const detailModal = document.getElementById('detailModal');
+    
+    // 只有在详情窗口显示时，快捷键才生效
+    if (detailModal.style.display === 'flex') {
+        if (e.key === 'Escape') {
+            closeModal('detailModal');
+        } 
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            const works = await getAllWorks();
+            const currentIndex = works.findIndex(w => w.id === currentWorkId);
+            
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                // 切换到上一张
+                viewWork(works[currentIndex - 1].id);
+            } else if (e.key === 'ArrowRight' && currentIndex < works.length - 1) {
+                // 切换到下一张
+                viewWork(works[currentIndex + 1].id);
+            }
+        }
+    }
+});
+    </script>
+</body>
+</html>
